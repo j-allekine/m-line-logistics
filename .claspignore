@@ -1,0 +1,8 @@
+# Local-only development artifacts
+tests/**
+docs/**
+.agents/**
+.git/**
+
+# Archives and generated bundles
+*.zip

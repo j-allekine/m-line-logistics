@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+    :root {
+      --blue-main: #204A87;
+      --blue-dark: #0B3D64;
+      --blue-deep: #073A5C;
+      --blue-light: #CFE2F3;
+
+      --sheet-bg: #EEF3FB;
+      --card-bg: #FFFFFF;
+      --row-alt: #F4F7FC;
+
+      --yellow: #FCE39A;
+      --yellow-border: #B88700;
+
+      --text-main: #102033;
+      --text-muted: #5F7086;
+      --text-white: #FFFFFF;
+
+      --border: #C8D3E1;
+      --border-soft: #D9E2EE;
+
+      --success: #22C55E;
+      --danger: #DC2626;
+
+      --shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 7px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--sheet-bg);
+      color: var(--text-main);
+      font-family: "Inter", "IBM Plex Sans", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-size: 13px;
+    }
+
+    .sidebar {
+      min-height: 100vh;
+      background: var(--sheet-bg);
+      padding: 10px;
+    }
+
+    .topbar {
+      background: var(--blue-main);
+      color: var(--text-white);
+      border-radius: var(--radius-lg);
+      padding: 13px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .topbar::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      top: -30px;
+      width: 96px;
+      height: 96px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      overflow: hidden;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 5px;
+      display: block;
+    }
+
+    .logo-fallback {
+      color: var(--text-white);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      display: none;
+    }
+
+    .brand-text {
+      min-width: 0;
+    }
+
+    .kicker {
+      margin-bottom: 3px;
+      color: #BFE7FF;
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .title {
+      margin: 0;
+      color: var(--text-white);
+      font-size: 16.5px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .current {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+      padding: 7px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #EAF6FF;
+      font-size: 10.5px;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+      flex: 0 0 auto;
+    }
+
+    .nav-spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-top-color: #FFFFFF;
+      animation: spin 0.7s linear infinite;
+      flex: 0 0 auto;
+      display: none;
+    }
+
+    .nav-spinner.is-visible {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .current-text {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .section {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card-bg);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+    }
+
+    .section-title {
+      margin: 0;
+      padding: 7px 10px;
+      background: var(--blue-dark);
+      color: var(--text-white);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .nav-list {
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--card-bg);
+    }
+
+    .nav-button {
+      position: relative;
+      width: 100%;
+      min-height: 50px;
+      padding: 7px 9px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      background: var(--card-bg);
+      color: var(--text-main);
+      text-align: left;
+      cursor: pointer;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+
+      font-family: "Inter", "IBM Plex Sans", Arial, sans-serif;
+
+      transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
+    }
+
+    .nav-button:nth-child(even) {
+      background: var(--row-alt);
+    }
+
+    .nav-button:hover {
+      border-color: var(--blue-main);
+      box-shadow: 0 3px 8px rgba(32, 74, 135, 0.12);
+    }
+
+    .nav-button:active {
+      transform: scale(0.99);
+    }
+
+    .nav-button.is-active {
+      background: var(--yellow);
+      border-color: var(--yellow-border);
+      box-shadow: inset 4px 0 0 var(--blue-main);
+    }
+
+    .nav-button.is-loading {
+      opacity: 0.72;
+      pointer-events: none;
+    }
+
+    .nav-button.is-missing {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .nav-button.is-missing:hover {
+      border-color: var(--border-soft);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .nav-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .nav-label-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .nav-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      background: var(--blue-dark);
+      color: var(--text-white);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .nav-button.is-active .nav-icon {
+      background: var(--blue-main);
+    }
+
+    .nav-label {
+      min-width: 0;
+      color: var(--text-main);
+      font-size: 12.5px;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-description {
+      margin-top: 3px;
+      padding-left: 29px;
+      color: var(--text-muted);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 10.2px;
+      font-weight: 500;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .active-pill {
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: var(--blue-main);
+      color: var(--text-white);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      flex: 0 0 auto;
+    }
+
+    .loading {
+      padding: 12px 8px;
+      color: var(--text-muted);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .message {
+      margin-top: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--card-bg);
+      color: var(--text-muted);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .message.error {
+      border-color: rgba(220, 38, 38, 0.35);
+      color: var(--danger);
+    }
+
+    .footer {
+      margin-top: 10px;
+      padding: 9px 10px;
+      color: var(--text-muted);
+      font-family: "IBM Plex Sans", "Inter", Arial, sans-serif;
+      font-size: 10px;
+      line-height: 1.35;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="sidebar">
+    <header class="topbar">
+      <div class="brand-row">
+        <div class="logo-wrap">
+          <img
+            id="logoImage"
+            src="<?!= navigationLogoDataUri ?>"
+            alt="M-Line Logo"
+            onerror="handleLogoError()"
+          >
+          <div class="logo-fallback" id="logoFallback">ML</div>
+        </div>
+
+        <div class="brand-text">
+          <div class="kicker">Navigation</div>
+          <h1 class="title" id="appTitle"><?!= navigationAppTitle ?></h1>
+        </div>
+      </div>
+
+      <div class="current">
+        <span class="dot"></span>
+        <span class="nav-spinner" id="navSpinner"></span>
+        <span class="current-text" id="activeSheetText">Loading...</span>
+      </div>
+    </header>
+
+    <section id="navigationRoot">
+      <div class="loading">Loading navigation...</div>
+    </section>
+
+    <div id="messageBox" class="message" style="display: none;"></div>
+
+    <footer class="footer">
+      Navigation only. Data, formulas, and statuses are not changed here.
+    </footer>
+  </main>
+
+  <script>
+    let currentActiveSheetName = "";
+    let activeSheetWatcher = null;
+    let isNavigatingFromSidebar = false;
+
+    document.addEventListener("DOMContentLoaded", function() {
+      validateLogo();
+      loadNavigation();
+    });
+
+    function validateLogo() {
+      const logoImage = document.getElementById("logoImage");
+      const logoFallback = document.getElementById("logoFallback");
+
+      if (!logoImage || !logoImage.getAttribute("src")) {
+        logoImage.style.display = "none";
+        logoFallback.style.display = "block";
+      }
+    }
+
+    function handleLogoError() {
+      const logoImage = document.getElementById("logoImage");
+      const logoFallback = document.getElementById("logoFallback");
+
+      logoImage.style.display = "none";
+      logoFallback.style.display = "block";
+    }
+
+    function showSpinner() {
+      const spinner = document.getElementById("navSpinner");
+      if (spinner) {
+        spinner.classList.add("is-visible");
+      }
+    }
+
+    function hideSpinner() {
+      const spinner = document.getElementById("navSpinner");
+      if (spinner) {
+        spinner.classList.remove("is-visible");
+      }
+    }
+
+    function loadNavigation() {
+      google.script.run
+        .withSuccessHandler(function(payload) {
+          renderNavigation(payload);
+          hideSpinner();
+        })
+        .withFailureHandler(function(error) {
+          hideSpinner();
+          showError(error);
+        })
+        .getNavigationPayload();
+    }
+
+    function renderNavigation(payload) {
+      const appTitle = document.getElementById("appTitle");
+      const activeSheetText = document.getElementById("activeSheetText");
+      const root = document.getElementById("navigationRoot");
+
+      appTitle.textContent = payload.appTitle || "M-Line Logistics";
+
+      currentActiveSheetName = payload.activeSheetName || "";
+
+      activeSheetText.textContent = currentActiveSheetName
+        ? "Current: " + currentActiveSheetName
+        : "Current sheet unavailable";
+
+      root.innerHTML = "";
+
+      payload.sections.forEach(function(section) {
+        const sectionEl = document.createElement("section");
+        sectionEl.className = "section";
+
+        const titleEl = document.createElement("h2");
+        titleEl.className = "section-title";
+        titleEl.textContent = section.title;
+
+        const listEl = document.createElement("div");
+        listEl.className = "nav-list";
+
+        section.items.forEach(function(item) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "nav-button";
+          button.title = item.description || item.label;
+
+          button.dataset.sheetName = item.resolvedSheetName || item.sheetName;
+          button.dataset.label = item.label;
+
+          if (item.isActive) {
+            button.classList.add("is-active");
+          }
+
+          if (!item.exists) {
+            button.classList.add("is-missing");
+            button.disabled = true;
+            button.title = "Missing sheet: " + item.sheetName;
+          }
+
+          const main = document.createElement("div");
+          main.className = "nav-main";
+
+          const labelRow = document.createElement("div");
+          labelRow.className = "nav-label-row";
+
+          const icon = document.createElement("div");
+          icon.className = "nav-icon";
+          icon.textContent = getIconText(item.label);
+
+          const label = document.createElement("div");
+          label.className = "nav-label";
+          label.textContent = item.label;
+
+          labelRow.appendChild(icon);
+          labelRow.appendChild(label);
+
+          const description = document.createElement("div");
+          description.className = "nav-description";
+          description.textContent = item.exists
+            ? item.description
+            : "Missing sheet: " + item.sheetName;
+
+          main.appendChild(labelRow);
+          main.appendChild(description);
+
+          button.appendChild(main);
+
+          if (item.isActive) {
+            button.appendChild(createActivePill());
+          }
+
+          if (item.exists) {
+            button.addEventListener("click", function() {
+              goTo(item.resolvedSheetName || item.sheetName, button);
+            });
+          }
+
+          listEl.appendChild(button);
+        });
+
+        sectionEl.appendChild(titleEl);
+        sectionEl.appendChild(listEl);
+        root.appendChild(sectionEl);
+      });
+
+      startActiveSheetWatcher();
+    }
+
+    function goTo(sheetName, clickedButton) {
+      clearMessage();
+
+      isNavigatingFromSidebar = true;
+      showSpinner();
+
+      setActiveButton(clickedButton);
+      setCurrentSheetText(sheetName);
+
+      clickedButton.classList.add("is-loading");
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          clickedButton.classList.remove("is-loading");
+
+          if (result && result.sheetName) {
+            setCurrentSheetText(result.sheetName);
+            syncActiveButtonBySheetName(result.sheetName);
+          }
+
+          hideSpinner();
+
+          setTimeout(function() {
+            isNavigatingFromSidebar = false;
+          }, 300);
+        })
+        .withFailureHandler(function(error) {
+          clickedButton.classList.remove("is-loading");
+          isNavigatingFromSidebar = false;
+          hideSpinner();
+          showError(error);
+        })
+        .goToSheet(sheetName);
+    }
+
+    function startActiveSheetWatcher() {
+      if (activeSheetWatcher) return;
+
+      activeSheetWatcher = setInterval(function() {
+        if (isNavigatingFromSidebar) return;
+
+        google.script.run
+          .withSuccessHandler(function(activeSheetName) {
+            if (!activeSheetName) return;
+
+            if (normalizeText(activeSheetName) !== normalizeText(currentActiveSheetName)) {
+              setCurrentSheetText(activeSheetName);
+              syncActiveButtonBySheetName(activeSheetName);
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.log(error);
+          })
+          .getActiveSheetName();
+      }, 1500);
+    }
+
+    function setActiveButton(activeButton) {
+      const buttons = document.querySelectorAll(".nav-button");
+
+      buttons.forEach(function(button) {
+        button.classList.remove("is-active");
+
+        const existingPill = button.querySelector(".active-pill");
+        if (existingPill) {
+          existingPill.remove();
+        }
+      });
+
+      activeButton.classList.add("is-active");
+      activeButton.appendChild(createActivePill());
+    }
+
+    function syncActiveButtonBySheetName(sheetName) {
+      const buttons = document.querySelectorAll(".nav-button");
+
+      buttons.forEach(function(button) {
+        const buttonSheetName = button.dataset.sheetName || "";
+
+        button.classList.remove("is-active");
+
+        const existingPill = button.querySelector(".active-pill");
+        if (existingPill) {
+          existingPill.remove();
+        }
+
+        if (normalizeText(buttonSheetName) === normalizeText(sheetName)) {
+          button.classList.add("is-active");
+          button.appendChild(createActivePill());
+        }
+      });
+    }
+
+    function createActivePill() {
+      const pill = document.createElement("span");
+      pill.className = "active-pill";
+      pill.textContent = "Active";
+      return pill;
+    }
+
+    function setCurrentSheetText(sheetName) {
+      currentActiveSheetName = sheetName;
+
+      const activeSheetText = document.getElementById("activeSheetText");
+      activeSheetText.textContent = "Current: " + sheetName;
+    }
+
+    function getIconText(label) {
+      const map = {
+        "Setup": "S",
+        "Master Data": "MD",
+        "TruckDrivers": "TD",
+        "Trips": "T",
+        "Subcon Payables": "SP",
+        "Billing": "B",
+        "Cashflow": "C",
+        "Expenses": "E",
+        "Other Income": "OI",
+        "Billing Statement": "BS",
+        "Payment Statement": "PS",
+        "Trip History": "TH",
+        "TripsDB": "DB"
+      };
+
+      return map[label] || label.substring(0, 1).toUpperCase();
+    }
+
+    function normalizeText(value) {
+      return String(value || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+    }
+
+    function showError(error) {
+      const message = error && error.message
+        ? error.message
+        : String(error || "Navigation error.");
+
+      const box = document.getElementById("messageBox");
+      box.className = "message error";
+      box.textContent = message;
+      box.style.display = "block";
+    }
+
+    function clearMessage() {
+      const box = document.getElementById("messageBox");
+      box.textContent = "";
+      box.style.display = "none";
+    }
+  </script>
+</body>
+</html>

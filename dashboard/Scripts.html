@@ -1,0 +1,1292 @@
+<script>
+var CHARTS = {};
+var activeDashboardRequestId = 0;
+var hasRenderedDashboard = false;
+var isSyncingControls = false;
+var dashboardRequestTimeoutId = null;
+var dashboardBooted = false;
+
+window.__dashboardScriptsLoaded = true;
+
+window.onerror = function (message, source, lineno, colno, error) {
+  showError(
+    "Dashboard client error: " +
+    ((error && error.message) || message || "Unknown client error")
+  );
+};
+
+window.onunhandledrejection = function (event) {
+  var reason = event && event.reason;
+
+  showError(
+    "Dashboard promise error: " +
+    ((reason && reason.message) || String(reason) || "Unknown promise error")
+  );
+};
+
+var centerTextPlugin = {
+  id: "centerText",
+  beforeDraw: function (chart) {
+    var centerText = (chart.options.plugins || {}).centerText;
+    var hasCenterLabel =
+      centerText &&
+      centerText.centerLabel !== undefined &&
+      centerText.centerLabel !== null &&
+      String(centerText.centerLabel) !== "";
+    var hasCenterValue =
+      centerText &&
+      centerText.centerValue !== undefined &&
+      centerText.centerValue !== null &&
+      String(centerText.centerValue) !== "";
+
+    if (!hasCenterLabel || !hasCenterValue) return;
+
+    var ctx = chart.ctx;
+    var area = chart.chartArea;
+    var centerX = (area.left + area.right) / 2;
+    var centerY = (area.top + area.bottom) / 2;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "600 11px Inter, sans-serif";
+    ctx.fillText(centerText.centerLabel, centerX, centerY - 12);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 18px Inter, sans-serif";
+    ctx.fillText(centerText.centerValue, centerX, centerY + 10);
+    ctx.restore();
+  }
+};
+
+var stackedTotalLabelsPlugin = {
+  id: "stackedTotalLabels",
+  afterDatasetsDraw: function (chart) {
+    var totals = chart.options.plugins.stackedTotalLabels &&
+      chart.options.plugins.stackedTotalLabels.totals;
+
+    if (!totals) return;
+
+    var ctx = chart.ctx;
+    var xScale = chart.scales.x;
+    var yScale = chart.scales.y;
+
+    ctx.save();
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "700 11px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+
+    totals.forEach(function (total, index) {
+      var numericTotal = Number(total) || 0;
+
+      if (numericTotal <= 0) return;
+
+      var x = xScale.getPixelForValue(index);
+      var y = yScale.getPixelForValue(numericTotal) - 6;
+
+      ctx.fillText(String(numericTotal), x, y);
+    });
+
+    ctx.restore();
+  }
+};
+
+
+var donutPercentageLabelsPlugin = {
+  id: "donutPercentageLabels",
+  afterDatasetsDraw: function (chart) {
+    var pluginOptions =
+      chart.options &&
+      chart.options.plugins &&
+      chart.options.plugins.donutPercentageLabels;
+
+    if (!pluginOptions || !pluginOptions.enabled) {
+      return;
+    }
+
+    var dataset = chart.data.datasets[0];
+
+    if (!dataset || !dataset.data) {
+      return;
+    }
+
+    var total = dataset.data.reduce(function (sum, value) {
+      return sum + (Number(value) || 0);
+    }, 0);
+
+    if (total <= 0) {
+      return;
+    }
+
+    var meta = chart.getDatasetMeta(0);
+    var ctx = chart.ctx;
+    var minPercent = Number(pluginOptions.minPercent) || 5;
+
+    ctx.save();
+    ctx.fillStyle = pluginOptions.color || "#ffffff";
+    ctx.font = pluginOptions.font || "800 12px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    dataset.data.forEach(function (value, index) {
+      var numericValue = Number(value) || 0;
+      var percent = total > 0
+        ? Math.round((numericValue / total) * 100)
+        : 0;
+
+      if (percent < minPercent) {
+        return;
+      }
+
+      var arc = meta.data[index];
+
+      if (!arc || arc.hidden) {
+        return;
+      }
+
+      var position = arc.tooltipPosition();
+
+      ctx.fillText(percent + "%", position.x, position.y);
+    });
+
+    ctx.restore();
+  }
+};
+
+var categoryBarValueLabelsPlugin = {
+  id: "categoryBarValueLabels",
+  afterDatasetsDraw: function (chart) {
+    var pluginOptions =
+      chart.options &&
+      chart.options.plugins &&
+      chart.options.plugins.categoryBarValueLabels;
+
+    if (!pluginOptions || !pluginOptions.enabled) {
+      return;
+    }
+
+    var datasetIndex = Number(pluginOptions.datasetIndex) || 0;
+    var dataset = chart.data.datasets[datasetIndex];
+
+    if (!dataset || !dataset.data) {
+      return;
+    }
+
+    var meta = chart.getDatasetMeta(datasetIndex);
+    var ctx = chart.ctx;
+
+    ctx.save();
+    ctx.fillStyle = pluginOptions.color || "#e2e8f0";
+    ctx.font = pluginOptions.font || "800 11px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+
+    dataset.data.forEach(function (value, index) {
+      var numericValue = Number(value) || 0;
+
+      if (numericValue === 0) {
+        return;
+      }
+
+      var bar = meta.data[index];
+
+      if (!bar || bar.hidden) {
+        return;
+      }
+
+      var position = bar.tooltipPosition();
+      var yOffset = numericValue >= 0 ? -8 : 14;
+
+      ctx.fillText(formatCompactCurrency_(numericValue), position.x, position.y + yOffset);
+    });
+
+    ctx.restore();
+  }
+};
+
+function registerDashboardChartPlugins_() {
+  if (typeof Chart === "undefined") {
+    throw new Error("Chart.js failed to load.");
+  }
+
+  Chart.register(
+    centerTextPlugin,
+    stackedTotalLabelsPlugin,
+    donutPercentageLabelsPlugin,
+    categoryBarValueLabelsPlugin
+  );
+}
+
+function getStaticLegendOptions_(extraOptions) {
+  var options = extraOptions || {};
+
+  options.labels = options.labels || {};
+  options.labels.color = options.labels.color || "#fff";
+  options.onClick = function () {};
+
+  return options;
+}
+
+function getExecutiveLegendOptions_() {
+  return {
+    position: "top",
+    align: "center",
+    labels: {
+      usePointStyle: true,
+      boxWidth: 8,
+      boxHeight: 8,
+      padding: 16,
+      color: "#e2e8f0",
+      font: {
+        size: 11,
+        weight: "600"
+      }
+    },
+    onClick: function () {}
+  };
+}
+
+function buildPercentageLegendLabels_(chart, total) {
+  var dataset = chart.data.datasets[0] || {};
+  var labels = chart.data.labels || [];
+  var colors = dataset.backgroundColor || [];
+  var values = dataset.data || [];
+
+  return labels.map(function (label, index) {
+    var value = Number(values[index]) || 0;
+    var percent = total > 0
+      ? Math.round((value / total) * 100)
+      : 0;
+
+    return {
+      text: label + " (" + percent + "%)",
+      fillStyle: colors[index],
+      strokeStyle: colors[index],
+      lineWidth: 0,
+      hidden: false,
+      index: index
+    };
+  });
+}
+
+function bootDashboard_() {
+  if (dashboardBooted) return;
+
+  dashboardBooted = true;
+
+  try {
+    registerDashboardChartPlugins_();
+    initializeControls();
+    fetchDashboard("ALL", "ALL");
+  } catch (error) {
+    showError(
+      "Dashboard startup error: " +
+      ((error && error.message) || String(error))
+    );
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootDashboard_);
+} else {
+  bootDashboard_();
+}
+
+function initializeControls() {
+  var yearSelect = document.getElementById("yearSelect");
+  var monthSelect = document.getElementById("monthSelect");
+  var refreshBtn = document.getElementById("refreshBtn");
+  var clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+  yearSelect.addEventListener("change", function () {
+    if (isSyncingControls) return;
+
+    var data = window.__dashboardData || {};
+    var selectedYear = getSelectedDashboardYear_();
+
+    if (selectedYear === "ALL") {
+      rebuildMonthOptions_(
+        monthSelect,
+        data.availablePeriods,
+        "ALL",
+        "ALL"
+      );
+
+      fetchDashboard("ALL", "ALL");
+      return;
+    }
+
+    rebuildMonthOptions_(
+      monthSelect,
+      data.availablePeriods,
+      selectedYear,
+      "ALL"
+    );
+
+    fetchDashboard(selectedYear, getSelectedDashboardMonth_());
+  });
+
+  monthSelect.addEventListener("change", function () {
+    if (isSyncingControls) return;
+
+    fetchDashboard(
+      getSelectedDashboardYear_(),
+      getSelectedDashboardMonth_()
+    );
+  });
+
+  refreshBtn.addEventListener("click", function () {
+    fetchDashboard(
+      getSelectedDashboardYear_(),
+      getSelectedDashboardMonth_()
+    );
+  });
+
+  clearFiltersBtn.addEventListener("click", function () {
+    fetchDashboard("ALL", "ALL");
+  });
+}
+
+function fetchDashboard(year, month) {
+  var requestId = ++activeDashboardRequestId;
+
+  var selectedYear = normalizeDashboardFilterValue_(year);
+  var selectedMonth = normalizeDashboardFilterValue_(month);
+
+  if (selectedYear === "ALL") {
+    selectedMonth = "ALL";
+  }
+
+  showLoading();
+
+  if (dashboardRequestTimeoutId) {
+    clearTimeout(dashboardRequestTimeoutId);
+  }
+
+  dashboardRequestTimeoutId = setTimeout(function () {
+    if (requestId !== activeDashboardRequestId) return;
+
+    showError(
+      "Dashboard request timed out. The client loaded, but getDashboardData did not return within 30 seconds. Check Apps Script > Executions for the server-side error or timeout."
+    );
+  }, 30000);
+
+  if (!google || !google.script || !google.script.run) {
+    showError("Dashboard startup error: google.script.run is not available in this dialog.");
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function (data) {
+      onDataReceived(data, requestId);
+    })
+    .withFailureHandler(function (error) {
+      onDataError(error, requestId);
+    })
+    .getDashboardData(selectedYear, selectedMonth);
+}
+
+function getSelectedDashboardYear_() {
+  var yearSelect = document.getElementById("yearSelect");
+
+  return normalizeDashboardFilterValue_(yearSelect.value);
+}
+
+function getSelectedDashboardMonth_() {
+  var yearValue = getSelectedDashboardYear_();
+
+  if (yearValue === "ALL") {
+    return "ALL";
+  }
+
+  var monthSelect = document.getElementById("monthSelect");
+
+  return normalizeDashboardFilterValue_(monthSelect.value);
+}
+
+function normalizeDashboardFilterValue_(value) {
+  if (value === undefined || value === null || value === "") {
+    return "ALL";
+  }
+
+  var textValue = String(value).trim();
+
+  if (!textValue || textValue.toUpperCase() === "ALL") {
+    return "ALL";
+  }
+
+  return textValue;
+}
+
+function onDataReceived(data, requestId) {
+  if (requestId !== activeDashboardRequestId) return;
+
+  if (dashboardRequestTimeoutId) {
+    clearTimeout(dashboardRequestTimeoutId);
+    dashboardRequestTimeoutId = null;
+  }
+
+  try {
+    if (data && data.error) {
+      showError(data.error);
+      return;
+    }
+
+    renderDashboard(data);
+    hideLoading();
+
+  } catch (error) {
+    showError(
+      "Dashboard render error: " +
+      ((error && error.message) || String(error))
+    );
+  }
+}
+
+function onDataError(error, requestId) {
+  if (requestId !== activeDashboardRequestId) return;
+
+  if (dashboardRequestTimeoutId) {
+    clearTimeout(dashboardRequestTimeoutId);
+    dashboardRequestTimeoutId = null;
+  }
+
+  showError(
+    "Dashboard server error: " +
+    ((error && error.message) || String(error) || "Failed to load dashboard data.")
+  );
+}
+
+function showLoading() {
+  setControlsDisabled_(true);
+
+  if (hasRenderedDashboard) {
+    document.getElementById("loading-overlay").classList.remove("hidden");
+    document.getElementById("loading-overlay").classList.add("flex");
+    document.getElementById("dashboard").classList.remove("hidden");
+    document.getElementById("loading-state").classList.add("hidden");
+    document.getElementById("loading-state").classList.remove("flex");
+  } else {
+    document.getElementById("loading-state").classList.remove("hidden");
+    document.getElementById("loading-state").classList.add("flex");
+    document.getElementById("dashboard").classList.add("hidden");
+  }
+
+  document.getElementById("error-state").classList.add("hidden");
+  document.getElementById("error-state").classList.remove("flex");
+}
+
+function hideLoading() {
+  setControlsDisabled_(false);
+  document.getElementById("loading-overlay").classList.add("hidden");
+  document.getElementById("loading-overlay").classList.remove("flex");
+  document.getElementById("loading-state").classList.add("hidden");
+  document.getElementById("loading-state").classList.remove("flex");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("error-state").classList.add("hidden");
+  document.getElementById("error-state").classList.remove("flex");
+}
+
+function showError(message) {
+  setControlsDisabled_(false);
+  document.getElementById("error-message").textContent = message;
+  document.getElementById("loading-overlay").classList.add("hidden");
+  document.getElementById("loading-overlay").classList.remove("flex");
+  document.getElementById("loading-state").classList.add("hidden");
+  document.getElementById("loading-state").classList.remove("flex");
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("error-state").classList.remove("hidden");
+  document.getElementById("error-state").classList.add("flex");
+}
+
+function renderDashboard(data) {
+  window.__dashboardData = data;
+  syncControls_(data);
+  renderKpis(data);
+  renderTripsByMonthChart_(data);
+  renderMonthlyFinancialPerformanceChart_(data);
+  renderReceivablesStatusChart_(data);
+  renderPayablesStatusChart_(data);
+  renderOpexBreakdownChart_(data);
+  renderOtherIncomeBreakdownChart_(data);
+  hasRenderedDashboard = true;
+}
+
+function syncControls_(data) {
+  if (!data || !data.controls) return;
+
+  var yearSelect = document.getElementById("yearSelect");
+  var monthSelect = document.getElementById("monthSelect");
+
+  isSyncingControls = true;
+
+  rebuildYearOptions_(
+    yearSelect,
+    data.availablePeriods,
+    data.controls.year
+  );
+
+  rebuildMonthOptions_(
+    monthSelect,
+    data.availablePeriods,
+    data.controls.year,
+    data.controls.month
+  );
+
+  isSyncingControls = false;
+}
+
+function rebuildYearOptions_(yearSelect, availablePeriods, selectedYear) {
+  var years = availablePeriods && availablePeriods.years
+    ? availablePeriods.years
+    : ["ALL"];
+
+  var resolvedSelectedYear = selectedYear || "ALL";
+
+  yearSelect.innerHTML = "";
+
+  years.forEach(function (year) {
+    var value = String(year);
+    var label = value === "ALL" ? "All" : value;
+
+    yearSelect.add(new Option(label, value));
+  });
+
+  yearSelect.value = String(resolvedSelectedYear);
+}
+
+function rebuildMonthOptions_(
+  monthSelect,
+  availablePeriods,
+  selectedYear,
+  selectedMonth
+) {
+  var yearValue = String(selectedYear || "ALL");
+  var monthsByYear = availablePeriods && availablePeriods.monthsByYear
+    ? availablePeriods.monthsByYear
+    : {};
+
+  var months = monthsByYear[yearValue] || [
+    {
+      month: "ALL",
+      label: "All"
+    }
+  ];
+
+  if (yearValue === "ALL") {
+    months = [
+      {
+        month: "ALL",
+        label: "All"
+      }
+    ];
+  }
+
+  var resolvedSelectedMonth =
+    yearValue === "ALL"
+      ? "ALL"
+      : String(selectedMonth || "ALL");
+
+  monthSelect.innerHTML = "";
+
+  months.forEach(function (period) {
+    monthSelect.add(
+      new Option(
+        period.label,
+        String(period.month)
+      )
+    );
+  });
+
+  monthSelect.value = resolvedSelectedMonth;
+  monthSelect.disabled = yearValue === "ALL";
+}
+
+function renderKpis(data) {
+  var kpi = (data && data.kpi) || {};
+
+  renderKpiRow_("kpi-row-1", [
+    ["Total Trips", kpi.totalTrips, "count", "route"],
+    ["Own Truck Trips", kpi.ownTruckTrips, "count", "truck"],
+    ["Subcon Trips", kpi.subconTrips, "count", "partner"],
+    ["Total Revenue", kpi.totalRevenue, "currency", "cash"],
+    ["Total Cost", kpi.totalCost, "currency", "receipt"]
+  ]);
+
+  renderKpiRow_("kpi-row-2", [
+    ["Net Income", kpi.netIncome, "currency", "trend"],
+    ["Receivables", kpi.receivables, "currency", "invoiceClock"],
+    ["Payables", kpi.payables, "currency", "paymentDue"],
+    ["Net Cash Flow", kpi.netCashFlow, "currency", "cashFlow"],
+    ["Current Balance", kpi.currentBalance, "currency", "wallet"]
+  ]);
+}
+
+function renderKpiRow_(containerId, cards) {
+  var container = document.getElementById(containerId);
+
+  container.innerHTML = "";
+
+  cards.forEach(function (card) {
+    container.appendChild(createKpiCard_(card[0], card[1], card[2], card[3]));
+  });
+}
+
+function createKpiCard_(label, value, format, iconKey) {
+  var card = document.createElement("article");
+  var headerEl = document.createElement("div");
+  var iconEl = document.createElement("div");
+  var labelEl = document.createElement("p");
+  var valueEl = document.createElement("p");
+
+  card.className = "rounded-lg border border-slate-700/60 bg-navy-800 p-4 shadow-lg";
+  headerEl.className = "flex items-start justify-between gap-3";
+  iconEl.className = "kpi-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sky-500/10";
+  labelEl.className = "text-xs font-semibold uppercase tracking-wide text-slate-300";
+  valueEl.className = "mt-4 text-2xl font-extrabold text-white";
+
+  iconEl.innerHTML = getKpiIconSvg_(iconKey);
+  labelEl.textContent = label;
+  valueEl.textContent = formatKpiValue_(value, format);
+
+  headerEl.appendChild(labelEl);
+  headerEl.appendChild(iconEl);
+  card.appendChild(headerEl);
+  card.appendChild(valueEl);
+
+  return card;
+}
+
+function getKpiIconSvg_(iconKey) {
+  var icons = {
+    route: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12"></path><path d="M4 12h9"></path><path d="M4 18h5"></path><path d="M17 15l3 3l-3 3"></path><path d="M11 18h9"></path></svg>',
+    truck: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3z"></path><path d="M14 10h4l3 3v3h-7z"></path><path d="M7 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z"></path><path d="M17 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4z"></path></svg>',
+    partner: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11l3 3a2 2 0 0 0 3 0l1-1"></path><path d="M7 12l-2-2a3 3 0 0 1 4-4l2 2"></path><path d="M17 12l2-2a3 3 0 0 0-4-4l-2 2"></path><path d="M6 14l4 4a3 3 0 0 0 4 0l4-4"></path></svg>',
+    cash: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9v.01"></path><path d="M18 15v.01"></path></svg>',
+    receipt: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1l-2 1l-2-1l-2 1l-2-1l-2 1z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>',
+    trend: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16"></path><path d="M5 15l5-5l4 4l5-7"></path><path d="M15 7h4v4"></path></svg>',
+    invoiceClock: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v6"></path><path d="M6 3v18h6"></path><path d="M14 3v5h4"></path><path d="M9 10h5"></path><path d="M9 14h3"></path><circle cx="17" cy="17" r="4"></circle><path d="M17 15v2l1.5 1"></path></svg>',
+    paymentDue: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path><path d="M17 13v4"></path><path d="M15 15h4"></path></svg>',
+    cashFlow: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h11l-3-3"></path><path d="M18 7l-3 3"></path><path d="M17 17H6l3 3"></path><path d="M6 17l3-3"></path><circle cx="12" cy="12" r="2"></circle></svg>',
+    wallet: '<svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"></path><path d="M16 13h5"></path><path d="M18 13v.01"></path></svg>'
+  };
+
+  return icons[iconKey] || icons.route;
+}
+
+function formatKpiValue_(value, format) {
+  var number = Number(value) || 0;
+  var formatted = Math.round(number).toLocaleString("en-US");
+
+  if (format === "currency") {
+    return "\u20b1" + formatted;
+  }
+
+  return formatted;
+}
+
+function renderTripsByMonthChart_(data) {
+  var chartData = data.tripsByMonth;
+
+  if (CHARTS.tripsByMonth) {
+    CHARTS.tripsByMonth.destroy();
+  }
+
+  var ctx = document.getElementById("chart1").getContext("2d");
+
+  CHARTS.tripsByMonth = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: chartData.months,
+      datasets: [
+        {
+          label: "Own Truck Trips",
+          data: chartData.ownTruckTrips,
+          backgroundColor: "#38bdf8",
+          borderRadius: 3,
+          barPercentage: 0.72,
+          categoryPercentage: 0.62,
+          stack: "trips"
+        },
+        {
+          label: "Subcon Trips",
+          data: chartData.subconTrips,
+          backgroundColor: "#fb7185",
+          borderRadius: 3,
+          barPercentage: 0.72,
+          categoryPercentage: 0.62,
+          stack: "trips"
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: getExecutiveLegendOptions_(),
+        stackedTotalLabels: {
+          totals: chartData.totalTrips
+        },
+        tooltip: {
+          callbacks: {
+            footer: function (items) {
+              var index = items[0].dataIndex;
+
+              return "Total: " + chartData.totalTrips[index];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: {
+            color: "#94a3b8"
+          },
+          grid: {
+            color: "rgba(148, 163, 184, 0.10)",
+            lineWidth: 1
+          }
+        },
+        y: {
+          stacked: true,
+          suggestedMax: getSuggestedTripsAxisMax_(chartData.totalTrips),
+          beginAtZero: true,
+          ticks: {
+            color: "#94a3b8",
+            precision: 0
+          },
+          grid: {
+            color: "rgba(148, 163, 184, 0.16)",
+            lineWidth: 1
+          }
+        }
+      }
+    }
+  });
+}
+
+function getSuggestedTripsAxisMax_(totalTrips) {
+  var maxTrips = Math.max.apply(
+    null,
+    (totalTrips || []).map(function (value) {
+      return Number(value) || 0;
+    })
+  );
+
+  if (maxTrips <= 0) return 1;
+
+  return Math.ceil(maxTrips * 1.18);
+}
+
+function renderMonthlyFinancialPerformanceChart_(data) {
+  var chartData = data.monthlyFinancialPerformance;
+
+  if (CHARTS.monthlyFinancialPerformance) {
+    CHARTS.monthlyFinancialPerformance.destroy();
+  }
+
+  var ctx = document.getElementById("chart2").getContext("2d");
+
+  CHARTS.monthlyFinancialPerformance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: chartData.months,
+      datasets: [
+        {
+          type: "bar",
+          label: "Total Revenue",
+          data: chartData.totalRevenue,
+          backgroundColor: "#3b82f6",
+          borderRadius: 3,
+          barPercentage: 1,
+          categoryPercentage: 0.58,
+          order: 2,
+          yAxisID: "y"
+        },
+        {
+          type: "bar",
+          label: "Total Cost",
+          data: chartData.totalCost,
+          backgroundColor: "#ef4444",
+          borderRadius: 3,
+          barPercentage: 1,
+          categoryPercentage: 0.58,
+          order: 2,
+          yAxisID: "y"
+        },
+        {
+          type: "line",
+          label: "Net Income",
+          data: chartData.netIncome,
+          borderColor: "#22c55e",
+          backgroundColor: "#22c55e",
+          pointBackgroundColor: "#22c55e",
+          pointBorderColor: "#22c55e",
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          order: 1,
+          yAxisID: "y"
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "index",
+        intersect: false
+      },
+      plugins: {
+        legend: getExecutiveLegendOptions_(),
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              return context.dataset.label + ": " + formatCompactCurrency_(context.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#94a3b8"
+          },
+          grid: {
+            color: "#334155"
+          }
+        },
+        y: {
+          position: "left",
+          beginAtZero: true,
+          ticks: {
+            color: "#94a3b8",
+            callback: function (value) {
+              return formatCompactCurrency_(value);
+            }
+          },
+          grid: {
+            color: "#334155"
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderStatusAmountLegend_(containerId, items) {
+  var container = document.getElementById(containerId);
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  items.forEach(function (item) {
+    var rowEl = document.createElement("div");
+    var dotEl = document.createElement("span");
+    var textWrapEl = document.createElement("div");
+    var labelEl = document.createElement("p");
+    var amountEl = document.createElement("p");
+    var percent = Number(item.percent) || 0;
+
+    rowEl.className = "status-legend-item";
+    dotEl.className = "status-legend-dot";
+    textWrapEl.className = "status-legend-text";
+    labelEl.className = "status-legend-label";
+    amountEl.className = "status-legend-amount";
+
+    dotEl.style.backgroundColor = item.color;
+    labelEl.textContent = item.label;
+    amountEl.textContent =
+      formatCurrencyWithDecimals_(item.amount) + " · " + percent + "%";
+
+    textWrapEl.appendChild(labelEl);
+    textWrapEl.appendChild(amountEl);
+
+    rowEl.appendChild(dotEl);
+    rowEl.appendChild(textWrapEl);
+
+    container.appendChild(rowEl);
+  });
+}
+
+
+function renderReceivablesStatusChart_(data) {
+  var chartData = data.receivablesStatus;
+  var labels = ["UNBILLED", "BILLED", "PAID"];
+  var colors = ["#f59e0b", "#3b82f6", "#22c55e"];
+  var values = [
+    chartData.unbilled,
+    chartData.billed,
+    chartData.paid
+  ];
+
+  var total = values.reduce(function (sum, value) {
+    return sum + (Number(value) || 0);
+  }, 0);
+
+  var percents = values.map(function (value) {
+    return total > 0
+      ? Math.round(((Number(value) || 0) / total) * 100)
+      : 0;
+  });
+
+  renderStatusAmountLegend_("receivables-status-legend", [
+    {
+      label: "UNBILLED",
+      amount: chartData.unbilled,
+      percent: percents[0],
+      color: colors[0]
+    },
+    {
+      label: "BILLED",
+      amount: chartData.billed,
+      percent: percents[1],
+      color: colors[1]
+    },
+    {
+      label: "PAID",
+      amount: chartData.paid,
+      percent: percents[2],
+      color: colors[2]
+    }
+  ]);
+
+  if (CHARTS.receivablesStatus) {
+    CHARTS.receivablesStatus.destroy();
+  }
+
+  var ctx = document.getElementById("chart3").getContext("2d");
+
+  CHARTS.receivablesStatus = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderColor: "#1e293b",
+          borderWidth: 2,
+          hoverOffset: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "66%",
+      plugins: {
+        centerText: {
+          centerValue: formatCurrency_(chartData.centerValue),
+          centerLabel: chartData.centerLabel
+        },
+        donutPercentageLabels: {
+          enabled: true,
+          minPercent: 5,
+          color: "#ffffff",
+          font: "800 12px Inter, sans-serif"
+        },
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              var value = Number(context.parsed) || 0;
+              var percent = total > 0
+                ? Math.round((value / total) * 100)
+                : 0;
+
+              return [
+                "Amount: " + formatCurrencyWithDecimals_(value),
+                "Share: " + percent + "%"
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderPayablesStatusChart_(data) {
+  var chartData = data.payablesStatus;
+  var labels = ["UNPAID", "PAID"];
+  var colors = ["#ef4444", "#22c55e"];
+  var values = [
+    chartData.unpaid,
+    chartData.paid
+  ];
+
+  var total = values.reduce(function (sum, value) {
+    return sum + (Number(value) || 0);
+  }, 0);
+
+  var percents = values.map(function (value) {
+    return total > 0
+      ? Math.round(((Number(value) || 0) / total) * 100)
+      : 0;
+  });
+
+  renderStatusAmountLegend_("payables-status-legend", [
+    {
+      label: "UNPAID",
+      amount: chartData.unpaid,
+      percent: percents[0],
+      color: colors[0]
+    },
+    {
+      label: "PAID",
+      amount: chartData.paid,
+      percent: percents[1],
+      color: colors[1]
+    }
+  ]);
+
+  if (CHARTS.payablesStatus) {
+    CHARTS.payablesStatus.destroy();
+  }
+
+  var ctx = document.getElementById("chart4").getContext("2d");
+
+  CHARTS.payablesStatus = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderColor: "#1e293b",
+          borderWidth: 2,
+          hoverOffset: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "66%",
+      plugins: {
+        centerText: {
+          centerValue: formatCurrency_(chartData.centerValue),
+          centerLabel: chartData.centerLabel
+        },
+        donutPercentageLabels: {
+          enabled: true,
+          minPercent: 5,
+          color: "#ffffff",
+          font: "800 12px Inter, sans-serif"
+        },
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              var value = Number(context.parsed) || 0;
+              var percent = total > 0
+                ? Math.round((value / total) * 100)
+                : 0;
+
+              return [
+                "Amount: " + formatCurrencyWithDecimals_(value),
+                "Share: " + percent + "%"
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderOpexBreakdownChart_(data) {
+  var chartData = data.opexBreakdown;
+
+  renderCategoryAmountBarChart_({
+    chartKey: "opexBreakdown",
+    canvasId: "chart5",
+    emptyStateId: "opex-empty-state",
+    categories: chartData.categories,
+    amounts: chartData.amounts,
+    color: "#3b82f6"
+  });
+}
+
+function renderOtherIncomeBreakdownChart_(data) {
+  var chartData = data.otherIncomeBreakdown;
+
+  renderCategoryAmountBarChart_({
+    chartKey: "otherIncomeBreakdown",
+    canvasId: "chart6",
+    emptyStateId: "other-income-empty-state",
+    categories: chartData.categories,
+    amounts: chartData.amounts,
+    color: "#10b981"
+  });
+}
+
+function renderCategoryAmountBarChart_(config) {
+  var canvas = document.getElementById(config.canvasId);
+  var frame = canvas.closest(".chart-frame");
+  var emptyState = document.getElementById(config.emptyStateId);
+  var hasData = config.categories.length > 0;
+
+  if (CHARTS[config.chartKey]) {
+    CHARTS[config.chartKey].destroy();
+    delete CHARTS[config.chartKey];
+  }
+
+  if (!hasData) {
+    frame.classList.add("hidden");
+    emptyState.classList.remove("hidden");
+    return;
+  }
+
+  frame.classList.remove("hidden");
+  emptyState.classList.add("hidden");
+
+  CHARTS[config.chartKey] = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: config.categories,
+      datasets: [
+        {
+          data: config.amounts,
+          backgroundColor: config.color,
+          borderRadius: 3,
+          categoryPercentage: 0.7,
+          barPercentage: 0.85
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: "x",
+      layout: {
+        padding: {
+          top: 28
+        }
+      },
+      plugins: {
+        categoryBarValueLabels: {
+          enabled: true,
+          datasetIndex: 0,
+          color: "#e2e8f0",
+          font: "800 11px Inter, sans-serif"
+        },
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              return "Amount: " + formatCurrencyWithDecimals_(context.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#94a3b8"
+          },
+          grid: {
+            color: "#334155"
+          }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#94a3b8",
+            callback: function (value) {
+              return formatCompactCurrency_(value);
+            }
+          },
+          grid: {
+            color: "#334155"
+          }
+        }
+      }
+    }
+  });
+}
+
+function formatCompactCurrency_(value) {
+  var number = Number(value) || 0;
+  var absoluteNumber = Math.abs(number);
+  var sign = number < 0 ? "-" : "";
+
+  if (absoluteNumber >= 1000000000) {
+    return sign + "\u20b1" + trimCompactNumber_(absoluteNumber / 1000000000) + "B";
+  }
+
+  if (absoluteNumber >= 1000000) {
+    return sign + "\u20b1" + trimCompactNumber_(absoluteNumber / 1000000) + "M";
+  }
+
+  if (absoluteNumber >= 1000) {
+    return sign + "\u20b1" + trimCompactNumber_(absoluteNumber / 1000) + "K";
+  }
+
+  return sign + "\u20b1" + Math.round(absoluteNumber).toLocaleString("en-US");
+}
+
+function trimCompactNumber_(value) {
+  var rounded = Math.round(value * 10) / 10;
+
+  if (rounded % 1 === 0) {
+    return String(Math.round(rounded));
+  }
+
+  return String(rounded);
+}
+
+function formatCurrencyWithDecimals_(value) {
+  var number = Number(value) || 0;
+
+  return "\u20b1" + number.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatCurrency_(value) {
+  var number = Number(value) || 0;
+
+  return "\u20b1" + Math.round(number).toLocaleString("en-US");
+}
+
+function setControlsDisabled_(isDisabled) {
+  var yearSelect = document.getElementById("yearSelect");
+  var monthSelect = document.getElementById("monthSelect");
+  var refreshBtn = document.getElementById("refreshBtn");
+  var clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+  if (yearSelect) {
+    yearSelect.disabled = isDisabled;
+  }
+
+  if (monthSelect) {
+    monthSelect.disabled =
+      isDisabled ||
+      normalizeDashboardFilterValue_(yearSelect && yearSelect.value) === "ALL";
+  }
+
+  if (refreshBtn) {
+    refreshBtn.disabled = isDisabled;
+  }
+
+  if (clearFiltersBtn) {
+    clearFiltersBtn.disabled = isDisabled;
+  }
+}
+</script>
