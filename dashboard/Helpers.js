@@ -119,6 +119,20 @@ function isPaidSubconDeduction_(record) {
 }
 
 
+function getPaidSubconDeductionMargin_(record) {
+  return toNumber_(record.chargeAmount) - toNumber_(record.actualCost);
+}
+
+
+function sumPaidSubconDeductionMargins_(records, range) {
+  return sumRecords_(records || [], record =>
+    isPaidSubconDeduction_(record) && isInRange_(record.date, range)
+      ? getPaidSubconDeductionMargin_(record)
+      : 0
+  );
+}
+
+
 function sumPaidSubconDeductionCharges_(records, range) {
   return sumRecords_(records || [], record =>
     isPaidSubconDeduction_(record) && isInRange_(record.date, range)
@@ -410,8 +424,10 @@ function buildRevenueKpis_(
   range
 ) {
   const tripRevenue = sumRecords_(tripsDb, record =>
-    isInRange_(record.date, range)
-      ? toNumber_(record.grossEarnings)
+    hasPaymentDate_(record) &&
+    isInRange_(record.paymentDate, range) &&
+    normalizeStatus_(record.billingStatus) === "PAID"
+      ? getBillingAmount_(record)
       : 0
   );
 
@@ -421,7 +437,7 @@ function buildRevenueKpis_(
       : 0
   );
 
-  const subconDeductionRevenue = sumPaidSubconDeductionCharges_(
+  const subconDeductionRevenue = sumPaidSubconDeductionMargins_(
     subconDeductionsRecords,
     range
   );
@@ -453,16 +469,10 @@ function buildCostKpis_(
       : 0
   );
 
-  const subconDeductionCost = sumPaidSubconDeductionActualCosts_(
-    subconDeductionsRecords,
-    range
-  );
-
   return {
     subconCost: subconCost,
     expenses: expenses,
-    subconDeductionCost: subconDeductionCost,
-    totalCost: subconCost + expenses + subconDeductionCost
+    totalCost: subconCost + expenses
   };
 }
 
@@ -676,7 +686,6 @@ function buildMonthlyFinancialPerformanceChart_(
   };
   const range = buildYearChartRange_(selectedPeriod);
   const subconDeductionRevenue = emptyMonthlyArray_();
-  const subconDeductionCost = emptyMonthlyArray_();
 
   tripsDb
     .filter(record => isInRange_(record.date, range))
@@ -685,12 +694,24 @@ function buildMonthlyFinancialPerformanceChart_(
 
       if (monthIndex < 0) return;
 
-      chart.tripRevenue[monthIndex] += toNumber_(record.grossEarnings);
-
       if (isSubcon_(record)) {
         chart.subconCost[monthIndex] += toNumber_(
           record.totalSubconEarnings
         );
+      }
+    });
+
+  tripsDb
+    .filter(record =>
+      hasPaymentDate_(record) &&
+      isInRange_(record.paymentDate, range) &&
+      normalizeStatus_(record.billingStatus) === "PAID"
+    )
+    .forEach(record => {
+      const monthIndex = getMonthIndex_(record.paymentDate);
+
+      if (monthIndex >= 0) {
+        chart.tripRevenue[monthIndex] += getBillingAmount_(record);
       }
     });
 
@@ -723,8 +744,9 @@ function buildMonthlyFinancialPerformanceChart_(
       const monthIndex = getMonthIndex_(record.date);
 
       if (monthIndex >= 0) {
-        subconDeductionRevenue[monthIndex] += toNumber_(record.chargeAmount);
-        subconDeductionCost[monthIndex] += toNumber_(record.actualCost);
+        subconDeductionRevenue[monthIndex] += getPaidSubconDeductionMargin_(
+          record
+        );
       }
     });
 
@@ -736,8 +758,7 @@ function buildMonthlyFinancialPerformanceChart_(
 
     chart.totalCost[monthIndex] =
       chart.subconCost[monthIndex] +
-      chart.expenses[monthIndex] +
-      subconDeductionCost[monthIndex];
+      chart.expenses[monthIndex];
 
     chart.netIncome[monthIndex] =
       chart.totalRevenue[monthIndex] - chart.totalCost[monthIndex];
@@ -858,7 +879,7 @@ function sumCustomerCollections_(tripsDb, range) {
     hasPaymentDate_(record) &&
     isInRange_(record.paymentDate, range) &&
     normalizeStatus_(record.billingStatus) === "PAID"
-      ? toNumber_(record.grossEarnings)
+      ? getBillingAmount_(record)
       : 0
   );
 }
@@ -869,7 +890,7 @@ function sumCustomerCollectionsUntil_(tripsDb, cutoffDate) {
     hasPaymentDate_(record) &&
     isBeforeOrOnDate_(record.paymentDate, cutoffDate) &&
     normalizeStatus_(record.billingStatus) === "PAID"
-      ? toNumber_(record.grossEarnings)
+      ? getBillingAmount_(record)
       : 0
   );
 }

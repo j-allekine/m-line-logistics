@@ -38,6 +38,8 @@ function run() {
       date: d(2026, 7, 5),
       isSubcon: false,
       grossEarnings: 10000,
+      alaskaRate: 7000,
+      fuelSubsidy: 1000,
       billingStatus: "PAID",
       paymentDate: d(2026, 7, 5)
     },
@@ -45,11 +47,40 @@ function run() {
       date: d(2026, 7, 6),
       isSubcon: true,
       grossEarnings: 8000,
+      alaskaRate: 5000,
+      fuelSubsidy: 500,
       totalSubconEarnings: 3000,
       billingStatus: "PAID",
       paymentDate: d(2026, 7, 6),
       subconPayableStatus: "PAID",
       subconPaymentDate: d(2026, 7, 6)
+    },
+    {
+      date: d(2026, 6, 30),
+      isSubcon: false,
+      grossEarnings: 9999,
+      alaskaRate: 2000,
+      fuelSubsidy: 100,
+      billingStatus: "PAID",
+      paymentDate: d(2026, 7, 3)
+    },
+    {
+      date: d(2026, 7, 15),
+      isSubcon: false,
+      grossEarnings: 8888,
+      alaskaRate: 4000,
+      fuelSubsidy: 400,
+      billingStatus: "PAID",
+      paymentDate: d(2026, 8, 1)
+    },
+    {
+      date: d(2026, 7, 20),
+      isSubcon: false,
+      grossEarnings: 7777,
+      alaskaRate: 3000,
+      fuelSubsidy: 300,
+      billingStatus: "BILLED",
+      paymentDate: ""
     }
   ];
 
@@ -109,19 +140,19 @@ function run() {
     }
   );
 
-  assert.strictEqual(result.kpi.totalRevenue, 24500);
-  assert.strictEqual(result.kpi.totalCost, 6200);
-  assert.strictEqual(result.kpi.netIncome, 18300);
-  assert.strictEqual(result.kpi.netCashFlow, 18325);
-  assert.strictEqual(result.kpi.currentBalance, 19325);
+  assert.strictEqual(result.kpi.totalRevenue, 19100);
+  assert.strictEqual(result.kpi.totalCost, 3200);
+  assert.strictEqual(result.kpi.netIncome, 15900);
+  assert.strictEqual(result.kpi.netCashFlow, 15925);
+  assert.strictEqual(result.kpi.currentBalance, 16925);
 
-  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[6], 24500);
-  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[6], 6200);
-  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[6], 18300);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[6], 19100);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[6], 3200);
+  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[6], 15900);
 
-  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[7], 7000);
-  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[7], 4000);
-  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[7], 3000);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[7], 7400);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[7], 0);
+  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[7], 7400);
 
   assert.strictEqual(result.kpi.payables, 0);
 
