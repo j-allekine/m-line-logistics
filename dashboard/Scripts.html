@@ -299,6 +299,8 @@ function initializeControls() {
   var refreshBtn = document.getElementById("refreshBtn");
   var clearFiltersBtn = document.getElementById("clearFiltersBtn");
 
+  initializeCalculationGuide_();
+
   yearSelect.addEventListener("change", function () {
     if (isSyncingControls) return;
 
@@ -348,6 +350,48 @@ function initializeControls() {
   });
 }
 
+
+function initializeCalculationGuide_() {
+  var openBtn = document.getElementById("calculationGuideBtn");
+  var closeBtn = document.getElementById("calculationGuideCloseBtn");
+  var modal = document.getElementById("calculationGuideModal");
+
+  if (!openBtn || !closeBtn || !modal || modal.dataset.initialized === "true") {
+    return;
+  }
+
+  modal.dataset.initialized = "true";
+  openBtn.addEventListener("click", openCalculationGuide_);
+  closeBtn.addEventListener("click", closeCalculationGuide_);
+
+  modal.addEventListener("click", function (event) {
+    if (event.target && event.target.getAttribute("data-calc-guide-close") === "true") {
+      closeCalculationGuide_();
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !modal.classList.contains("hidden")) {
+      closeCalculationGuide_();
+    }
+  });
+}
+
+function openCalculationGuide_() {
+  var modal = document.getElementById("calculationGuideModal");
+  var panel = modal && modal.querySelector(".calc-guide-panel");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  if (panel) panel.focus();
+}
+
+function closeCalculationGuide_() {
+  var modal = document.getElementById("calculationGuideModal");
+  var openBtn = document.getElementById("calculationGuideBtn");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  if (openBtn) openBtn.focus();
+}
 function fetchDashboard(year, month) {
   var requestId = ++activeDashboardRequestId;
 

@@ -86,6 +86,15 @@
             Clear Filters
           </button>
 
+
+          <button id="calculationGuideBtn" type="button" class="calc-guide-trigger" title="View calculation guide" aria-label="View calculation guide" aria-haspopup="dialog" aria-controls="calculationGuideModal">
+            <svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <path d="M7 12h10"></path>
+              <path d="M7 15h6"></path>
+            </svg>
+            <span class="sr-only">View calculation guide</span>
+          </button>
           <button id="refreshBtn" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-md bg-sky-500 text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60" title="Refresh dashboard" aria-label="Refresh dashboard">
             <svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12a9 9 0 0 1-15.5 6.3"></path>
@@ -98,6 +107,81 @@
         </div>
       </header>
 
+
+      <div id="calculationGuideModal" class="calc-guide-modal hidden" role="dialog" aria-modal="true" aria-labelledby="calculationGuideTitle">
+        <div class="calc-guide-backdrop" data-calc-guide-close="true"></div>
+        <section class="calc-guide-panel" tabindex="-1">
+          <div class="calc-guide-header">
+            <div>
+              <p class="calc-guide-eyebrow">Dashboard reference</p>
+              <h2 id="calculationGuideTitle" class="calc-guide-title">Calculation Guide</h2>
+            </div>
+            <button id="calculationGuideCloseBtn" type="button" class="calc-guide-close" aria-label="Close calculation guide">
+              <svg class="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="calc-guide-body">
+            <article class="calc-guide-section">
+              <h3>Total Revenue</h3>
+              <p>Money earned for the selected period.</p>
+              <pre>Total Revenue =
+  Paid Trip Billing Amount
+  + Other Income
+  + Paid Subcon Deduction Charge Amount</pre>
+              <p>Paid trip billing uses Alaska Rate plus Fuel Subsidy when Billing Status is PAID. Unbilled and billed receivables are not included.</p>
+            </article>
+
+            <article class="calc-guide-section">
+              <h3>Total Cost</h3>
+              <p>Costs paid or recorded for the selected period.</p>
+              <pre>Total Cost =
+  Paid Subcon Trip Cost
+  + Expenses
+  + Paid Subcon Deduction Actual Cost</pre>
+              <p>Unpaid subcon payables are not included in Total Cost.</p>
+            </article>
+
+            <article class="calc-guide-section">
+              <h3>Net Income</h3>
+              <p>Profit for the selected period.</p>
+              <pre>Net Income =
+  Total Revenue
+  - Total Cost</pre>
+            </article>
+
+            <article class="calc-guide-section">
+              <h3>Current Balance</h3>
+              <p>Running cash balance through the selected period end date.</p>
+              <pre>Current Balance =
+  Opening Balance
+  + Historical Cash In
+  - Historical Cash Out</pre>
+              <p>Receivables and unpaid payables are not included in Current Balance.</p>
+            </article>
+
+            <article class="calc-guide-section">
+              <h3>Receivables</h3>
+              <p>Current unpaid customer amounts.</p>
+              <pre>Receivables =
+  Unbilled Amount
+  + Billed But Unpaid Amount</pre>
+              <p>Amounts use Alaska Rate plus Fuel Subsidy.</p>
+            </article>
+
+            <article class="calc-guide-section">
+              <h3>Payables</h3>
+              <p>Current unpaid subcon amounts.</p>
+              <pre>Payables =
+  Unpaid Subcon Amount</pre>
+              <p>Includes subcon rows where Subcon Payable Status is UNPAID.</p>
+            </article>
+          </div>
+        </section>
+      </div>
       <section id="kpi-row-1" class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5"></section>
       <section id="kpi-row-2" class="mb-5 grid grid-cols-1 gap-4 md:grid-cols-5"></section>
 
