@@ -23,3 +23,4 @@ Example:
 Older generated plans can remain in `docs/superpowers/plans/` for history.
 
 Going forward, put shared implementation plans in this folder when the plan is intended to be part of the project's engineering documentation rather than a tool-specific session artifact.
+2026-07-04-dashboard-total-cost-net-income-alignment.md

@@ -437,7 +437,7 @@ function buildRevenueKpis_(
       : 0
   );
 
-  const subconDeductionRevenue = sumPaidSubconDeductionMargins_(
+  const subconDeductionRevenue = sumPaidSubconDeductionCharges_(
     subconDeductionsRecords,
     range
   );
@@ -457,10 +457,9 @@ function buildCostKpis_(
   subconDeductionsRecords,
   range
 ) {
-  const subconCost = sumRecords_(tripsDb, record =>
-    isInRange_(record.date, range) && isSubcon_(record)
-      ? toNumber_(record.totalSubconEarnings)
-      : 0
+  const subconCost = sumSubconPayments_(
+    tripsDb,
+    range
   );
 
   const expenses = sumRecords_(expensesRecords, record =>
@@ -469,10 +468,16 @@ function buildCostKpis_(
       : 0
   );
 
+  const subconDeductionCost = sumPaidSubconDeductionActualCosts_(
+    subconDeductionsRecords,
+    range
+  );
+
   return {
     subconCost: subconCost,
     expenses: expenses,
-    totalCost: subconCost + expenses
+    subconDeductionCost: subconDeductionCost,
+    totalCost: subconCost + expenses + subconDeductionCost
   };
 }
 
@@ -686,15 +691,19 @@ function buildMonthlyFinancialPerformanceChart_(
   };
   const range = buildYearChartRange_(selectedPeriod);
   const subconDeductionRevenue = emptyMonthlyArray_();
+  const subconDeductionCost = emptyMonthlyArray_();
 
   tripsDb
-    .filter(record => isInRange_(record.date, range))
+    .filter(record =>
+      hasSubconPaymentDate_(record) &&
+      isInRange_(record.subconPaymentDate, range) &&
+      isSubcon_(record) &&
+      normalizeStatus_(record.subconPayableStatus) === "PAID"
+    )
     .forEach(record => {
-      const monthIndex = getMonthIndex_(record.date);
+      const monthIndex = getMonthIndex_(record.subconPaymentDate);
 
-      if (monthIndex < 0) return;
-
-      if (isSubcon_(record)) {
+      if (monthIndex >= 0) {
         chart.subconCost[monthIndex] += toNumber_(
           record.totalSubconEarnings
         );
@@ -744,8 +753,11 @@ function buildMonthlyFinancialPerformanceChart_(
       const monthIndex = getMonthIndex_(record.date);
 
       if (monthIndex >= 0) {
-        subconDeductionRevenue[monthIndex] += getPaidSubconDeductionMargin_(
-          record
+        subconDeductionRevenue[monthIndex] += toNumber_(
+          record.chargeAmount
+        );
+        subconDeductionCost[monthIndex] += toNumber_(
+          record.actualCost
         );
       }
     });
@@ -758,7 +770,8 @@ function buildMonthlyFinancialPerformanceChart_(
 
     chart.totalCost[monthIndex] =
       chart.subconCost[monthIndex] +
-      chart.expenses[monthIndex];
+      chart.expenses[monthIndex] +
+      subconDeductionCost[monthIndex];
 
     chart.netIncome[monthIndex] =
       chart.totalRevenue[monthIndex] - chart.totalCost[monthIndex];

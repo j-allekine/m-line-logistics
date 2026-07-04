@@ -56,6 +56,30 @@ function run() {
       subconPaymentDate: d(2026, 7, 6)
     },
     {
+      date: d(2026, 6, 29),
+      isSubcon: true,
+      grossEarnings: 0,
+      alaskaRate: 0,
+      fuelSubsidy: 0,
+      totalSubconEarnings: 1200,
+      billingStatus: "UNBILLED",
+      paymentDate: "",
+      subconPayableStatus: "PAID",
+      subconPaymentDate: d(2026, 7, 12)
+    },
+    {
+      date: d(2026, 7, 13),
+      isSubcon: true,
+      grossEarnings: 0,
+      alaskaRate: 0,
+      fuelSubsidy: 0,
+      totalSubconEarnings: 900,
+      billingStatus: "UNBILLED",
+      paymentDate: "",
+      subconPayableStatus: "UNPAID",
+      subconPaymentDate: ""
+    },
+    {
       date: d(2026, 6, 30),
       isSubcon: false,
       grossEarnings: 9999,
@@ -140,21 +164,21 @@ function run() {
     }
   );
 
-  assert.strictEqual(result.kpi.totalRevenue, 19100);
-  assert.strictEqual(result.kpi.totalCost, 3200);
-  assert.strictEqual(result.kpi.netIncome, 15900);
-  assert.strictEqual(result.kpi.netCashFlow, 15925);
-  assert.strictEqual(result.kpi.currentBalance, 16925);
+  assert.strictEqual(result.kpi.totalRevenue, 22100);
+  assert.strictEqual(result.kpi.totalCost, 7400);
+  assert.strictEqual(result.kpi.netIncome, 14700);
+  assert.strictEqual(result.kpi.netCashFlow, 14725);
+  assert.strictEqual(result.kpi.currentBalance, 15725);
 
-  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[6], 19100);
-  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[6], 3200);
-  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[6], 15900);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[6], 22100);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[6], 7400);
+  assert.strictEqual(result.monthlyFinancialPerformance.netIncome[6], 14700);
 
-  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[7], 7400);
-  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[7], 0);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalRevenue[7], 11400);
+  assert.strictEqual(result.monthlyFinancialPerformance.totalCost[7], 4000);
   assert.strictEqual(result.monthlyFinancialPerformance.netIncome[7], 7400);
 
-  assert.strictEqual(result.kpi.payables, 0);
+  assert.strictEqual(result.kpi.payables, 900);
 
   const receivablesKpi = ctx.buildReceivablesKpi_([
     {
