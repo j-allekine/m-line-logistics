@@ -12,7 +12,7 @@ unpaid receivable.
 Total Revenue =
   Paid Trip Billing Amount
   + Other Income
-  + Paid Subcon Deduction Margin
+  + Paid Subcon Deduction Charge Amount
 ```
 
 ## Components
@@ -21,7 +21,7 @@ Total Revenue =
 | --- | --- | --- | --- |
 | Paid Trip Billing Amount | `TripsDB` | `Payment Date` | `Alaska Rate + Fuel Subsidy` |
 | Other Income | `Other Income` | `Date` | `Amount` |
-| Paid Subcon Deduction Margin | `Subcon Deductions` | `Date` | `Charge Amount - Actual Cost` |
+| Paid Subcon Deduction Charge Amount | `Subcon Deductions` | `Date` | `Charge Amount` |
 
 ## Rules
 
@@ -29,8 +29,9 @@ Total Revenue =
 - Use `Payment Date` to place paid trip billing into a dashboard period.
 - Calculate trip billing amount as `Alaska Rate + Fuel Subsidy`.
 - Count `Other Income` by its row `Date`.
-- Count subcon deduction margin only when `Paid?` is `TRUE`.
-- Calculate subcon deduction margin server-side as `Charge Amount - Actual Cost`.
+- Count subcon deduction charge amount only when `Paid?` is `TRUE`.
+- Use `Charge Amount` as paid subcon deduction revenue.
+- Do not subtract `Actual Cost` from Total Revenue; `Actual Cost` belongs in Total Cost.
 - Do not use the sheet `Margin` field for dashboard calculation.
 - Do not use `Gross Earnings` for Total Revenue.
 - Do not include `UNBILLED` or `BILLED` receivables.
@@ -68,6 +69,6 @@ Charge Amount = 1,500
 Actual Cost = 1,000
 Paid? = TRUE
 
-Paid Subcon Deduction Margin = 500
+Paid Subcon Deduction Charge Amount = 1,500
 ```
 
