@@ -721,13 +721,12 @@ function getKpiIconSvg_(iconKey) {
 
 function formatKpiValue_(value, format) {
   var number = Number(value) || 0;
-  var formatted = Math.round(number).toLocaleString("en-US");
 
   if (format === "currency") {
-    return "\u20b1" + formatted;
+    return formatCurrencyWithDecimals_(number);
   }
 
-  return formatted;
+  return Math.round(number).toLocaleString("en-US");
 }
 
 function renderTripsByMonthChart_(data) {
